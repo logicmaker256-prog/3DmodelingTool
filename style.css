@@ -1,0 +1,805 @@
+        /* 画面全体の基本設定 */
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+            background-color: #f3f4f6;
+        }
+
+        /* 3Dモデルが表示される背景キャンバス */
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        /* 左側に浮かぶ統合メニューパネルの大枠 */
+        .app-panel {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            z-index: 10;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(5px); 
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+            width: 290px;
+            box-sizing: border-box;
+            overflow: hidden; /* 角丸からはみ出ないように */
+        }
+
+        /* ★アコーディオンのヘッダー（クリックする部分） */
+        .panel-header {
+            padding: 12px 16px;
+            background-color: #ff9800; /* オレンジ色で目立たせる */
+            color: white;
+            font-weight: bold;
+            font-size: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            user-select: none; /* スマホで長押し選択されないように */
+        }
+
+        .panel-header:active {
+            background-color: #e68a00;
+        }
+
+        /* アイコンの回転アニメーション用 */
+        #appToggleIcon {
+            transition: transform 0.3s ease;
+        }
+
+        /* ★アコーディオンの中身（折りたたまれる部分） */
+        .panel-content {
+            padding: 16px;
+            max-height: 75vh; /* スマホ画面からはみ出さないように高さを制限 */
+            overflow-y: auto; /* 縦スクロール可能に */
+            display: block; 
+        }
+
+        /* 閉じた時の状態 */
+        .panel-content.is-closed {
+            display: none;
+        }
+
+        /* ── メインメニュー（キャラ / ポージング / ポーズ格納庫 / ファイル） ── */
+        #main-tabs {
+            display: flex;
+            flex-wrap: wrap; /* タブが5つになったため、幅が足りなければ2段に折り返す */
+            gap: 4px;
+            margin-bottom: 12px;
+        }
+        .main-tab-btn {
+            flex: 1 1 28%;
+            padding: 8px 2px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            background: #f8f8f8;
+            font-size: 11px;
+            font-weight: bold;
+            color: #555;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.15s;
+        }
+        .main-tab-btn:active { transform: scale(0.97); }
+        .main-tab-btn.active { background: #ff9800; border-color: #ff9800; color: white; }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* ── キャラタブ内のカテゴリ（体型／顔形／髪／衣装／小道具） ── */
+        .menu-category {
+            border: 1px solid #eee;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            overflow: hidden;
+        }
+        .menu-category-header {
+            padding: 10px 12px;
+            background: #f5f5f5;
+            font-size: 13px;
+            font-weight: bold;
+            color: #444;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+        }
+        .menu-category-header:active { background: #ebebeb; }
+        .cat-arrow { font-size: 10px; color: #999; transition: transform 0.2s ease; }
+        .menu-category-header.open .cat-arrow { transform: rotate(90deg); }
+        .menu-category-body {
+            padding: 12px;
+            border-top: 1px solid #eee;
+        }
+        .menu-category-body.is-closed { display: none; }
+
+        /* ── 常時表示のステータス表示 ── */
+        #saveLoadStatus {
+            font-size: 11px; color: #888; margin-top: 4px; min-height: 16px;
+        }
+
+        /* 各設定項目のグループ */
+        .control-group {
+            margin-bottom: 14px;
+        }
+
+        /* 項目のタイトルラベル */
+        .control-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: bold;
+            margin-bottom: 6px;
+            color: #333;
+        }
+
+        /* スライダーの設定 */
+        .control-group input[type="range"] {
+            width: 100%;
+            margin: 0;
+            cursor: pointer;
+        }
+
+        /* セレクトボックスとカラーピッカーの設定 */
+        .control-group select, 
+        .control-group input[type="color"] {
+            width: 100%;
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            font-size: 14px;
+            background: #fff;
+            box-sizing: border-box;
+            cursor: pointer;
+        }
+
+        /* カラーピッカーの高さ調整 */
+        .control-group input[type="color"] {
+            height: 38px;
+            padding: 2px;
+        }
+
+        /* オレンジ色のダウンロードボタン */
+        #downloadBtn {
+            width: 100%;
+            padding: 12px;
+            background-color: #ff9800;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+            margin-top: 10px;
+            box-shadow: 0 4px 12px rgba(255, 152, 0, 0.3);
+        }
+
+        #downloadBtn:hover {
+            background-color: #e68a00;
+        }
+        #downloadBtn:active {
+            transform: scale(0.98);
+        }
+
+        /* スマホ向けにスクロールバーをすっきりさせる */
+        .panel-content::-webkit-scrollbar {
+            width: 6px;
+        }
+        .panel-content::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 3px;
+        }
+
+        .panel-section-label {
+            font-size: 11px;
+            font-weight: bold;
+            color: #888;
+            letter-spacing: 0.05em;
+            margin-bottom: 5px;
+            padding-left: 2px;
+        }
+        .pose-btn {
+            width: 100%;
+            padding: 9px 8px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            background: #f8f8f8;
+            font-size: 13px;
+            font-weight: bold;
+            cursor: pointer;
+            text-align: left;
+            transition: all 0.15s;
+        }
+        .pose-btn:active  { transform: scale(0.97); }
+        .pose-btn.active  { background: #7c4dff; border-color: #7c4dff; color: white; }
+        .seq-btn {
+            width: 100%;
+            padding: 9px 8px;
+            border: 2px solid #ff9800;
+            border-radius: 8px;
+            background: #fff8f0;
+            font-size: 13px;
+            font-weight: bold;
+            color: #e65c00;
+            cursor: pointer;
+            text-align: left;
+            transition: all 0.15s;
+        }
+        .seq-btn:active { transform: scale(0.97); }
+        .seq-btn.active { background: #ff9800; border-color: #ff9800; color: white; }
+
+        /* ── 🎬 動画編集 ── */
+        #video-edit-chain {
+            display: flex; flex-wrap: wrap; align-items: center; gap: 4px;
+            min-height: 34px; padding: 6px 8px; margin-bottom: 8px;
+            background: #f8f8f8; border: 2px dashed #ddd; border-radius: 8px;
+        }
+        #video-edit-chain-empty { font-size: 12px; color: #999; }
+        .video-chip {
+            padding: 5px 10px; border: none; border-radius: 999px;
+            background: #7c4dff; color: white; font-size: 13px; font-weight: bold;
+            cursor: pointer; transition: all 0.15s;
+        }
+        .video-chip:active { transform: scale(0.92); background: #e53935; }
+        .video-chip-arrow { color: #bbb; font-size: 13px; }
+        #video-edit-pose-picker {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 5px;
+            margin-bottom: 8px;
+        }
+        .video-pick-btn {
+            padding: 7px 6px; border: 2px solid #ddd; border-radius: 7px;
+            background: #f8f8f8; font-size: 12px; font-weight: bold;
+            text-align: left; cursor: pointer; transition: all 0.15s;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .video-pick-btn:active { transform: scale(0.96); background: #eee6ff; border-color: #7c4dff; }
+        #video-edit-add-row { display: flex; gap: 6px; margin-bottom: 8px; }
+        #video-edit-num-input {
+            flex: 1; min-width: 0; padding: 8px; border: 2px solid #ddd;
+            border-radius: 7px; font-size: 13px;
+        }
+        #video-edit-num-input:focus { outline: none; border-color: #7c4dff; }
+        #video-edit-num-add-btn {
+            flex-shrink: 0; padding: 8px 12px; border: none; border-radius: 7px;
+            background: #7c4dff; color: white; font-size: 13px; font-weight: bold; cursor: pointer;
+        }
+        #video-edit-num-add-btn:active { background: #6a3fd4; }
+        #video-edit-speed-row {
+            display: flex; align-items: center; justify-content: space-between;
+            font-size: 13px; font-weight: bold; color: #555; margin-bottom: 8px;
+        }
+        #video-edit-speed-select {
+            padding: 6px 8px; border: 2px solid #ddd; border-radius: 7px; font-size: 13px;
+        }
+        #video-edit-controls { display: flex; gap: 6px; }
+        #video-edit-clear-btn {
+            flex: 1; padding: 9px 6px; border: 2px solid #ddd; border-radius: 8px;
+            background: #f8f8f8; color: #777; font-size: 13px; font-weight: bold; cursor: pointer;
+        }
+        #video-edit-clear-btn:active { background: #eee; }
+        #video-edit-test-btn {
+            flex: 2; padding: 9px 6px; border: none; border-radius: 8px;
+            background: #7c4dff; color: white; font-size: 13px; font-weight: bold; cursor: pointer;
+        }
+        #video-edit-test-btn:active { background: #6a3fd4; }
+        #video-edit-test-btn:disabled, #video-edit-save-btn:disabled { background: #ccc; cursor: default; }
+        #video-edit-save-btn {
+            padding: 9px 6px; border: none; border-radius: 8px;
+            background: #4caf50; color: white; font-size: 13px; font-weight: bold; cursor: pointer;
+        }
+        #video-edit-save-btn:active { background: #388e3c; }
+        .saved-seq-row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
+        .saved-seq-row .seq-btn { flex: 1; }
+        .video-del-btn {
+            flex-shrink: 0; width: 34px; height: 34px; border: none; border-radius: 7px;
+            background: #fdecea; color: #e53935; font-size: 14px; cursor: pointer;
+        }
+        .video-del-btn:active { background: #f8c9c5; }
+        #video-saved-empty { font-size: 12px; color: #999; padding: 4px 2px; }
+        /* 保存済みシーケンス：ポーズ番号の並び・使用シーン表示、✏️編集ボタン */
+        .seq-btn .seq-sub { display: block; font-size: 11px; font-weight: normal; opacity: 0.85; margin-top: 2px; word-break: break-all; }
+        .seq-btn .seq-scene { font-size: 11px; }
+        .video-edit-name-btn { background: #eef3ff; color: #3f6fb0; }
+        .video-edit-name-btn:active { background: #d6e2fb; }
+
+        /* 📦 書き出し */
+        .video-export-btn {
+            display: block; width: 100%; padding: 10px; margin-bottom: 6px;
+            border: none; border-radius: 7px; background: #eee; color: #444;
+            font-size: 13px; font-weight: bold; cursor: pointer;
+        }
+        .video-export-btn:active { transform: scale(0.98); background: #ddd; }
+        .video-export-btn:disabled { background: #ccc; cursor: default; }
+        .video-export-zip { background: #4caf50; color: white; }
+        .video-export-zip:active { background: #388e3c; }
+        #video-export-note { font-size: 11px; color: #888; word-break: break-all; }
+
+        /* ── 動画編集：名前を付けて保存ポップアップ（スロット編集ポップアップと同じ見た目） ── */
+        #video-name-popup {
+            position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+            background:white; border-radius:14px;
+            box-shadow:0 10px 40px rgba(0,0,0,0.25);
+            padding:20px; z-index:100; width:280px;
+            max-height:85vh; overflow-y:auto;
+            display:none;
+        }
+        #video-name-popup.open { display:block; }
+        #video-name-popup-overlay {
+            position:fixed; inset:0; background:rgba(0,0,0,0.3);
+            z-index:99; display:none;
+        }
+        #video-name-popup-overlay.open { display:block; }
+        #video-name-popup h3 { margin:0 0 12px; font-size:15px; color:#7c4dff; }
+        #video-name-popup label { font-size:12px; font-weight:bold; color:#555; display:block; margin-bottom:4px; }
+        #video-name-popup input[type="text"] {
+            width:100%; box-sizing:border-box; padding:8px;
+            border:2px solid #ddd; border-radius:7px; font-size:14px;
+            margin-bottom:12px;
+        }
+        #video-name-popup input[type="text"]:focus { outline:none; border-color:#7c4dff; }
+        #video-popup-btns { display:flex; gap:8px; }
+        #video-popup-ok { flex:1; padding:10px; background:#7c4dff; color:white; border:none; border-radius:7px; font-size:14px; font-weight:bold; cursor:pointer; }
+        #video-popup-ok:active { background:#6a3fd4; }
+        #video-popup-cancel { flex:1; padding:10px; background:#eee; color:#555; border:none; border-radius:7px; font-size:14px; font-weight:bold; cursor:pointer; }
+        #video-popup-cancel:active { background:#ddd; }
+
+        /* ── 再生/停止バー ──────────────────────────────────
+           メニュー（.app-panel）が開いているとキャラが隠れてアニメが
+           見えないため、独立した位置（画面下・キャラの手前）に固定する。
+           メニューを閉じてもこのバーは残るので、アニメの確認に困らない。 */
+        #play-stop-bar {
+            position: absolute;
+            left: 50%;
+            bottom: 18px;
+            transform: translateX(-50%);
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            max-width: calc(100vw - 30px);
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(5px);
+            border-radius: 30px;
+            padding: 6px 8px 6px 18px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+            box-sizing: border-box;
+        }
+        #play-stop-label {
+            font-size: 13px;
+            font-weight: bold;
+            color: #555;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 55vw;
+        }
+        #play-stop-btn {
+            flex-shrink: 0;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: none;
+            background: #ff9800;
+            color: white;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        #play-stop-btn:active { transform: scale(0.92); }
+        #play-stop-btn.playing { background: #e53935; }
+        #play-stop-btn:disabled { background: #ccc; cursor: default; }
+
+        /* 再生バーの折りたたみ：開いている時は右端の小さな▼、閉じると左下の小さな丸ボタン(▲)だけになる */
+        #play-bar-toggle {
+            flex-shrink: 0; width: 40px; height: 40px; border-radius: 50%;
+            border: none; background: #607d8b; color: white; font-size: 14px;
+            cursor: pointer; touch-action: manipulation;
+        }
+        #play-stop-bar.collapsed {
+            left: 15px; transform: none; padding: 4px; gap: 0; border-radius: 50%;
+        }
+        #play-stop-bar.collapsed #play-stop-label,
+        #play-stop-bar.collapsed #play-stop-btn { display: none; }
+
+        /* ── キャラクター横回転バー ───────────────────────────
+           再生/停止バーの真上に固定。メニューを閉じても使える。
+           スマホでも押しやすいよう、ボタンは高さ44px以上。 */
+        #char-rotate-bar {
+            position: absolute;
+            right: 15px;
+            bottom: 90px;
+            z-index: 20;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            width: 330px;
+            max-width: calc(100vw - 30px);
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(5px);
+            border-radius: 16px;
+            padding: 8px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+            box-sizing: border-box;
+        }
+        #char-rotate-body { display: flex; flex-direction: column; gap: 6px; }
+        #char-rotate-bar.collapsed #char-rotate-body { display: none; }
+        #char-rotate-bar.collapsed { width: auto; padding: 4px; border-radius: 24px; }
+        #rot-toggle {
+            min-height: 40px; padding: 0 14px; border: none; border-radius: 20px;
+            background: #607d8b; color: white; font-size: 13px; font-weight: bold;
+            cursor: pointer; touch-action: manipulation; white-space: nowrap;
+        }
+        .char-rotate-row { display: flex; gap: 6px; }
+        .char-rotate-row button {
+            flex: 1;
+            min-width: 0;
+            min-height: 44px;
+            padding: 0 4px;
+            border: none;
+            border-radius: 10px;
+            background: #ff9800;
+            color: white;
+            font-size: 13px;
+            font-weight: bold;
+            white-space: nowrap;
+            cursor: pointer;
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .char-rotate-row button:active { transform: scale(0.96); }
+        #rot-front { background: #607d8b; }
+        #rot-spin.active { background: #e53935; }
+        #rot-stop { background: #e53935; }
+        #rot-stop:disabled { background: #ccc; cursor: default; }
+
+        /* ── 座標軸 表示ON/OFFボタン（axis-helper.js） ─────────────
+           回転バー(#char-rotate-bar, position:absolute)の子として「バーの真上」に置く。
+           バーが開いていても閉じていても、バーの高さに関係なく常にバーの上端に沿って並ぶので
+           回転ボタン・再生バー・メニューと重ならない。幅が狭くても右端基準で画面外へ出ない。 */
+        #axis-toggle-btn {
+            position: absolute;
+            right: 0;
+            bottom: calc(100% + 8px);
+            min-height: 40px;
+            min-width: 104px;
+            max-width: calc(100vw - 30px);
+            padding: 0 14px;
+            border: none;
+            border-radius: 20px;
+            background: #9e9e9e;      /* OFF */
+            color: white;
+            font-size: 13px;
+            font-weight: bold;
+            white-space: nowrap;
+            cursor: pointer;
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+        #axis-toggle-btn.on { background: #43a047; }   /* ON */
+        #axis-toggle-btn:active { transform: scale(0.96); }
+
+        /* ── ポーズ角度スライダーパネル（キャラ表示画面・右上に独立配置） ──
+           左のメニュー（.app-panel）を開いたままでも、キャラの右側は隠れないので、
+           スライダーを動かしながらポーズの変化をリアルタイムに確認できる。
+           関節を選択している間だけJSで表示する。 */
+        #joint-slider-panel {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            z-index: 15;
+            display: none;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(5px);
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+            padding: 10px 12px 12px;
+            box-sizing: border-box;
+            width: 150px;
+            max-width: 42vw;
+        }
+        #joint-slider-title {
+            font-size: 12px;
+            font-weight: bold;
+            color: #555;
+            text-align: center;
+            margin-bottom: 8px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .joint-slider-row { margin-bottom: 8px; }
+        .joint-slider-row:last-child { margin-bottom: 0; }
+        .joint-slider-headline {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 3px;
+        }
+        .joint-slider-value {
+            font-size: 11px;
+            font-weight: bold;
+            color: #555;
+            min-width: 28px;
+            text-align: right;
+        }
+        .joint-slider-row input[type="range"] {
+            width: 100%;
+            margin: 0;
+            display: block;
+            accent-color: #e91e63;
+            touch-action: pan-x;
+        }
+
+        /* 肢タブ（腕/脚/首） */
+        #limb-tab-buttons { display:flex; gap:4px; margin-bottom:5px; }
+        .limb-tab-btn {
+            flex:1; padding:7px 2px; border:2px solid #ddd; border-radius:8px;
+            background:#f8f8f8; font-size:11px; font-weight:bold;
+            cursor:pointer; text-align:center; transition:all 0.15s;
+        }
+        .limb-tab-btn:active { transform:scale(0.97); }
+        .limb-tab-btn.active { background:#e91e63; border-color:#e91e63; color:white; }
+
+        /* 左右タブ */
+        #side-tab-buttons { display:flex; gap:5px; margin-bottom:8px; }
+        .side-tab-btn {
+            flex:1; padding:6px 4px; border:2px solid #ddd; border-radius:8px;
+            background:#f8f8f8; font-size:12px; font-weight:bold;
+            cursor:pointer; text-align:center; transition:all 0.15s;
+        }
+        .side-tab-btn:active { transform:scale(0.97); }
+        .side-tab-btn.active { background:#7c4dff; border-color:#7c4dff; color:white; }
+
+        /* パーツボタン（JSで動的生成） */
+        #part-buttons-container { display:flex; flex-direction:column; gap:5px; margin-bottom:4px; }
+        .arm-part-btn {
+            width:100%; padding:8px 10px; border:2px solid #ddd; border-radius:8px;
+            background:#f8f8f8; font-size:13px; font-weight:bold;
+            cursor:pointer; text-align:left; transition:all 0.15s;
+        }
+        .arm-part-btn:active { transform:scale(0.97); }
+        .arm-part-btn.active { background:#e91e63; border-color:#e91e63; color:white; }
+
+        /* 角度入力 */
+        #arm-angle-inputs { display:flex; flex-direction:column; gap:6px; margin-bottom:8px; margin-top:6px; }
+        .angle-row { display:flex; align-items:center; gap:6px; }
+        .axis-label {
+            min-width:44px; font-weight:bold; font-size:11px; text-align:center;
+            border-radius:4px; padding:2px 4px; color:white; flex-shrink:0;
+            white-space:nowrap;
+        }
+        .axis-label.x-axis { background:#e53935; }
+        .axis-label.y-axis { background:#43a047; }
+        .axis-label.z-axis { background:#1e88e5; }
+        .angle-row input[type="number"] {
+            flex:1; padding:6px 8px; border:1px solid #ccc; border-radius:6px;
+            font-size:14px; text-align:right; min-width:0; box-sizing:border-box;
+        }
+        .angle-row input[type="number"]:focus { outline:none; border-color:#e91e63; }
+        .angle-unit { font-size:12px; color:#888; width:14px; flex-shrink:0; }
+        #arm-reset-btn {
+            width:100%; padding:8px; background:#fff3e0;
+            border:2px solid #ff9800; border-radius:8px;
+            font-size:12px; font-weight:bold; color:#e65c00;
+            cursor:pointer; transition:all 0.15s;
+        }
+        #arm-reset-btn:active { background:#ff9800; color:white; transform:scale(0.97); }
+        .pose-vault-action-btn {
+            display:block; width:100%; margin-top:8px; padding:10px 8px; background:#eef9ee;
+            border:2px solid #4caf50; border-radius:8px;
+            font-size:12px; font-weight:bold; color:#2e7d32;
+            cursor:pointer; transition:all 0.15s;
+        }
+        .pose-vault-action-btn:active { background:#4caf50; color:white; transform:scale(0.97); }
+        .pose-vault-action-btn.pose-vault-delete { background:#fdecea; border-color:#f44336; color:#c62828; }
+        .pose-vault-action-btn.pose-vault-delete:active { background:#f44336; color:white; }
+
+        /* ── セーブ/ロードボタン ── */
+        .save-load-btn {
+            flex:1; padding:9px 6px; border-radius:7px;
+            font-size:13px; font-weight:bold; cursor:pointer;
+            border:none; transition:all 0.15s;
+        }
+        .save-load-btn.save-btn { background:#4caf50; color:white; }
+        .save-load-btn.save-btn:active { background:#388e3c; transform:scale(0.97); }
+        .save-load-btn.load-btn { background:#2196f3; color:white; }
+        .save-load-btn.load-btn:active { background:#1565c0; transform:scale(0.97); }
+
+        /* ── マイポーズスロット ── */
+        #pose-slot-buttons {
+            display:flex; flex-direction:column; gap:5px;
+        }
+        .pose-slot-row {
+            display:flex; gap:4px; align-items:center;
+        }
+        .slot-num-badge {
+            width:22px; height:22px; border-radius:50%;
+            background:#7c4dff; color:white;
+            font-size:11px; font-weight:bold;
+            display:flex; align-items:center; justify-content:center;
+            flex-shrink:0;
+        }
+        .slot-apply-btn {
+            flex:1; padding:7px 6px; border:2px solid #ddd;
+            border-radius:7px; background:#f8f8f8;
+            font-size:12px; font-weight:bold; cursor:pointer;
+            text-align:left; transition:all 0.15s; overflow:hidden;
+            white-space:nowrap; text-overflow:ellipsis;
+        }
+        .slot-apply-btn:active { transform:scale(0.97); }
+        .slot-apply-btn.active { background:#7c4dff; border-color:#7c4dff; color:white; }
+        .slot-apply-btn.has-data { border-color:#7c4dff; background:#f3eeff; }
+        .slot-apply-btn.has-data.active { background:#7c4dff; color:white; }
+        .slot-edit-btn {
+            width:28px; height:28px; border-radius:6px;
+            border:2px solid #e91e63; background:#fff0f5;
+            color:#e91e63; font-size:13px; cursor:pointer;
+            display:flex; align-items:center; justify-content:center;
+            transition:all 0.15s; flex-shrink:0;
+        }
+        .slot-edit-btn:active { background:#e91e63; color:white; transform:scale(0.97); }
+        .slot-delete-btn {
+            width:28px; height:28px; border-radius:6px;
+            border:2px solid #bbb; background:#f8f8f8;
+            color:#999; font-size:13px; cursor:pointer;
+            display:flex; align-items:center; justify-content:center;
+            transition:all 0.15s; flex-shrink:0;
+        }
+        .slot-delete-btn:active { background:#f44336; border-color:#f44336; color:white; transform:scale(0.97); }
+        .slot-add-btn {
+            width:28px; height:28px; border-radius:6px;
+            border:2px solid #4caf50; background:#eef9ee;
+            color:#2e7d32; font-size:15px; font-weight:bold; cursor:pointer;
+            display:flex; align-items:center; justify-content:center;
+            transition:all 0.15s; flex-shrink:0;
+        }
+        .slot-add-btn:active { background:#4caf50; color:white; transform:scale(0.97); }
+        .slot-move-down-btn {
+            width:28px; height:28px; border-radius:6px;
+            border:2px solid #4caf50; background:#eef9ee;
+            color:#2e7d32; font-size:15px; font-weight:bold; cursor:pointer;
+            display:flex; align-items:center; justify-content:center;
+            transition:all 0.15s; flex-shrink:0;
+        }
+        .slot-move-down-btn:active { background:#4caf50; color:white; transform:scale(0.97); }
+
+        /* ── ポーズ保管庫の「デフォルトにする」ボタン ── */
+        #pose-default-btn {
+            display:block; width:100%; box-sizing:border-box; min-height:44px;
+            margin-top:12px; padding:10px 8px;
+            border:2px solid #7c4dff; border-radius:8px;
+            background:#f3eeff; color:#5e35b1;
+            font-size:14px; font-weight:bold; cursor:pointer; transition:all 0.15s;
+        }
+        #pose-default-btn:active { background:#7c4dff; color:white; transform:scale(0.98); }
+        #pose-default-msg { font-size:11px; margin-top:4px; min-height:16px; word-break:break-all; }
+
+        /* ── セーブファイル名入力 ── */
+        #save-filename-row {
+            display:flex; align-items:center; gap:6px;
+        }
+        #saveFileNameInput {
+            flex:1; padding:8px 9px; border:2px solid #ddd; border-radius:7px;
+            font-size:13px; min-width:0;
+        }
+        #saveFileNameInput:focus { border-color:#4caf50; outline:none; }
+        #save-filename-ext { font-size:12px; color:#888; flex-shrink:0; }
+        .slot-action-btn {
+            flex:1; padding:8px 6px; border-radius:7px;
+            font-size:12px; font-weight:bold; cursor:pointer;
+            border:none; transition:all 0.15s;
+        }
+        .slot-action-btn.save-btn { background:#4caf50; color:white; }
+        .slot-action-btn.save-btn:active { background:#388e3c; transform:scale(0.97); }
+
+        /* ── スロット編集ポップアップ ── */
+        #slot-edit-popup {
+            position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+            background:white; border-radius:14px;
+            box-shadow:0 10px 40px rgba(0,0,0,0.25);
+            padding:20px; z-index:100; width:280px;
+            max-height:85vh; overflow-y:auto;
+            display:none;
+        }
+        #slot-edit-popup.open { display:block; }
+        #slot-popup-overlay {
+            position:fixed; inset:0; background:rgba(0,0,0,0.3);
+            z-index:99; display:none;
+        }
+        #slot-popup-overlay.open { display:block; }
+        #slot-edit-popup h3 {
+            margin:0 0 12px; font-size:15px; color:#7c4dff;
+        }
+        #slot-edit-popup label {
+            font-size:12px; font-weight:bold; color:#555; display:block; margin-bottom:4px;
+        }
+        #slot-edit-popup input[type="text"] {
+            width:100%; box-sizing:border-box; padding:8px;
+            border:2px solid #ddd; border-radius:7px; font-size:14px;
+            margin-bottom:12px;
+        }
+        #slot-edit-popup input[type="text"]:focus {
+            outline:none; border-color:#7c4dff;
+        }
+        #slot-popup-btns { display:flex; gap:8px; }
+        #slot-popup-ok { flex:1; padding:10px; background:#7c4dff; color:white; border:none; border-radius:7px; font-size:14px; font-weight:bold; cursor:pointer; }
+        #slot-popup-ok:active { background:#6a3fd4; }
+        #slot-popup-cancel { flex:1; padding:10px; background:#eee; color:#555; border:none; border-radius:7px; font-size:14px; font-weight:bold; cursor:pointer; }
+        #slot-popup-cancel:active { background:#ddd; }
+        #slot-popup-reset {
+            width:100%; margin-top:10px; padding:8px;
+            background:#fff3e0; border:2px solid #ff9800;
+            border-radius:7px; color:#e65c00;
+            font-size:12px; font-weight:bold; cursor:pointer;
+            transition:all 0.15s;
+        }
+        #slot-popup-reset:active { background:#ff9800; color:white; }
+
+        /* ── ポーズ専用表情（スロット編集ポップアップ／ポージングタブ共通） ── */
+        .expr-toggle-select {
+            width:100%; box-sizing:border-box; padding:8px;
+            border:2px solid #ddd; border-radius:7px; font-size:13px;
+            margin-bottom:10px; background:#f8f8f8;
+        }
+        .expr-toggle-select:focus { outline:none; border-color:#7c4dff; }
+        .expr-preset-grid {
+            display:grid; grid-template-columns:repeat(4, 1fr); gap:5px;
+            margin-bottom:14px; transition:opacity 0.15s;
+        }
+        .slot-expr-btn {
+            padding:6px 2px; border:2px solid #ddd; border-radius:7px;
+            background:#f8f8f8; cursor:pointer; text-align:center;
+            display:flex; flex-direction:column; align-items:center; gap:2px;
+            transition:all 0.15s;
+        }
+        .slot-expr-btn .expr-emoji { font-size:17px; line-height:1; }
+        .slot-expr-btn .expr-label { font-size:9px; font-weight:bold; color:#777; }
+        .slot-expr-btn:active { transform:scale(0.94); }
+        .slot-expr-btn.active { background:#7c4dff; border-color:#7c4dff; }
+        .slot-expr-btn.active .expr-label { color:white; }
+        .slot-expr-btn:disabled { opacity:0.5; cursor:default; }
+
+        /* ── ポージングタブ内の表情ステータス表示 ── */
+        #posing-expr-status {
+            font-size:11px; color:#7c4dff; font-weight:bold;
+            margin-bottom:6px;
+        }
+        #posing-expr-status.inactive { color:#aaa; font-weight:normal; }
+        .expr-toggle-select:disabled { opacity:0.5; }
+
+        /* ── ポーズ専用小道具（スロット編集ポップアップ／ポージングタブ共通） ── */
+        .props-select-row {
+            display:grid; grid-template-columns:1fr 1fr; gap:10px;
+            margin-bottom:4px; transition:opacity 0.15s;
+        }
+        .props-select-row .control-group { margin-bottom:10px; }
+
+        /* ── ポージングタブ内の小道具ステータス表示 ── */
+        #posing-props-status {
+            font-size:11px; color:#7c4dff; font-weight:bold;
+            margin-bottom:6px;
+        }
+        #posing-props-status.inactive { color:#aaa; font-weight:normal; }
+
+        #arm-axis-legend {
+            display:flex; gap:6px; margin:4px 0 2px; font-size:11px;
+            font-weight:bold; justify-content:center; align-items:center;
+        }
+        .legend-item { display:flex; align-items:center; gap:3px; }
+        .legend-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+        .panel-divider { border:none; border-top:1px solid #eee; margin:6px 0; }

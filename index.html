@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Character Maker</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+
+    <!-- ★メニュー（.app-panel）を閉じてもアニメを確認できるよう、独立した再生/停止ボタン -->
+    <div id="play-stop-bar">
+        <span id="play-stop-label">👉 動画編集でシーケンスを選んでね</span>
+        <button id="play-stop-btn" disabled>▶</button>
+        <!-- ★再生バーの折りたたみ（座標軸などが隠れないように。再生状態には影響しない） -->
+        <button id="play-bar-toggle" type="button" title="再生バーを折りたたむ/開く">▼</button>
+    </div>
+
+    <!-- ★キャラクター横回転ボタン（プレビュー確認専用。ポーズ・セーブ・GLBには影響しない） -->
+    <div id="char-rotate-bar" class="collapsed">
+        <button id="rot-toggle" title="回転メニューの開閉">🔄 回転 ▲</button>
+        <div id="char-rotate-body">
+        <div class="char-rotate-row">
+            <button id="rot-left-90" title="キャラクターを左へ90°回転">⟲ 左90°</button>
+            <button id="rot-left-1" title="キャラクターを左へ1°回転">⟲ 左1°</button>
+            <button id="rot-right-1" title="キャラクターを右へ1°回転">右1° ⟳</button>
+            <button id="rot-right-90" title="キャラクターを右へ90°回転">右90° ⟳</button>
+        </div>
+        <div class="char-rotate-row">
+            <button id="rot-front" title="向きだけを初期の正面に戻す（ポーズは変わりません）">正面に戻す</button>
+            <button id="rot-spin" title="その場で360°回転（回転中にもう一度押すと停止）">360°回転</button>
+            <button id="rot-stop" disabled>■ 停止</button>
+        </div>
+        </div>
+        <!-- ★座標軸の表示ON/OFF（axis-helper.js。回転バーのすぐ上に重なりなく表示される） -->
+        <button id="axis-toggle-btn" class="on" type="button" aria-pressed="true" title="座標軸と正面目印の表示/非表示を切り替え">座標軸：ON</button>
+    </div>
+
+    <!-- ★ポージング中の関節角度（前後・左右・ひねり）を、キャラの表示を隠さず
+         確認しながら調整できるよう、画面右上に独立配置したスライダーパネル。
+         メニュー内の数値入力（input-rx/ry/rz）と値を相互に同期する。
+         関節を選択している間だけ表示され、それ以外は非表示（JS制御）。 -->
+    <div id="joint-slider-panel">
+        <div id="joint-slider-title">－</div>
+
+        <div class="joint-slider-row">
+            <div class="joint-slider-headline">
+                <span class="axis-label x-axis" title="前後 (Pitch)">前後</span>
+                <span class="joint-slider-value" id="slider-rx-val">0°</span>
+            </div>
+            <input type="range" id="slider-rx" min="-180" max="180" step="1" value="0">
+        </div>
+
+        <div class="joint-slider-row">
+            <div class="joint-slider-headline">
+                <span class="axis-label y-axis" title="左右 (Yaw)">左右</span>
+                <span class="joint-slider-value" id="slider-ry-val">0°</span>
+            </div>
+            <input type="range" id="slider-ry" min="-180" max="180" step="1" value="0">
+        </div>
+
+        <div class="joint-slider-row">
+            <div class="joint-slider-headline">
+                <span class="axis-label z-axis" title="ひねり (Roll)">ひねり</span>
+                <span class="joint-slider-value" id="slider-rz-val">0°</span>
+            </div>
+            <input type="range" id="slider-rz" min="-180" max="180" step="1" value="0">
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════
+         統合メニューパネル：キャラ／ポージング／ポーズ格納庫／ファイル
+    ═══════════════════════════════════════════════ -->
+    <div class="app-panel">
+
+        <div class="panel-header" id="appPanelHeader">
+            <span>☰ メニュー</span>
+            <span id="appToggleIcon">▼</span>
+        </div>
+
+        <div class="panel-content" id="appPanelContent">
+
+            <!-- メインメニュー -->
+            <div id="main-tabs">
+                <button class="main-tab-btn active" data-tab="chara">🧍 キャラ</button>
+                <button class="main-tab-btn" data-tab="posing">🎮 ポージング</button>
+                <button class="main-tab-btn" data-tab="posestore">🗃️ ポーズ格納庫</button>
+                <button class="main-tab-btn" data-tab="videoedit">🎬 動画編集</button>
+                <button class="main-tab-btn" data-tab="file">📁 ファイル</button>
+            </div>
+
+            <!-- ============ タブ：キャラ ============ -->
+            <div class="tab-content active" id="tab-chara">
+
+                <!-- 体型 -->
+                <div class="menu-category">
+                    <div class="menu-category-header" data-cat="body">体型 <span class="cat-arrow">▶</span></div>
+                    <div class="menu-category-body is-closed" data-cat-body="body">
+
+                        <div class="control-group">
+                            <label for="headScaleX">頭の横幅:</label>
+                            <input type="range" id="headScaleX" min="0.6" max="1.4" step="0.05" value="1.0">
+                        </div>
+
+                        <div class="control-group">
+                            <label for="headScaleY">頭の縦幅:</label>
+                            <input type="range" id="headScaleY" min="0.6" max="1.4" step="0.05" value="1.1">
+                        </div>
+
+                        <div class="control-group">
+                            <label for="jawWidth">あごの細さ:</label>
+                            <input type="range" id="jawWidth" min="0.2" max="1.0" step="0.05" value="0.8">
+                        </div>
+
+                        <div class="control-group">
+                            <label for="bustSize">胸の大きさ（バスト）:</label>
+                            <input type="range" id="bustSize" min="0.0" max="1.5" step="0.05" value="0.5">
+                        </div>
+
+                        <div class="control-group">
+                            <label for="bustProtrude">胸の飛び出し量:</label>
+                            <input type="range" id="bustProtrude" min="0.0" max="0.6" step="0.01" value="0.33">
+                        </div>
+
+                        <div class="control-group">
+                            <label for="skinColorSelect">肌の色:</label>
+                            <select id="skinColorSelect" onchange="setSkinPreset(this.value)">
+                                <option value="#ffe0c0" selected>肌色</option>
+                                <option value="#d9a066">小麦色</option>
+                                <option value="#fff1e6">美白</option>
+                                <option value="custom" disabled>カスタム</option>
+                            </select>
+                        </div>
+
+                        <div class="control-group">
+                            <label for="bodyColor">肌の色（カスタム）:</label>
+                            <input type="color" id="bodyColor" value="#ffe0c0">
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- 顔形 -->
+                <div class="menu-category">
+                    <div class="menu-category-header" data-cat="face">顔形 <span class="cat-arrow">▶</span></div>
+                    <div class="menu-category-body is-closed" data-cat-body="face">
+
+                        <!-- ★表情システム改修：目・口・眉の「形」はデフォルト表情に固定され、
+                             ポーズごとの表情は「🎮 ポージング」→「🗃️ ポーズ格納庫」の
+                             ✏️編集ポップアップから設定するようになったため、
+                             ここでの個別選択（目の形・口の形・眉の形）は廃止した。 -->
+
+                        <div class="control-group">
+                            <label for="eyeColorSelect">目の色:</label>
+                            <select id="eyeColorSelect" onchange="setEyePreset(this.value)">
+                                <option value="#000000" selected>黒</option>
+                                <option value="#7a4a2b">茶</option>
+                                <option value="#3f7fd9">青</option>
+                                <option value="#3f9d6b">緑</option>
+                                <option value="#8a5cc4">紫</option>
+                                <option value="#c23b3b">赤</option>
+                                <option value="#d1a44e">金</option>
+                                <option value="#e07fb0">ピンク</option>
+                                <option value="custom" disabled>カスタム</option>
+                            </select>
+                        </div>
+
+                        <div class="control-group">
+                            <label for="eyeColor">目の色（カスタム）:</label>
+                            <input type="color" id="eyeColor" value="#000000">
+                        </div>
+
+                        <div class="control-group">
+                            <label for="earType">耳の形:</label>
+                            <select id="earType">
+                                <option value="human">人間の耳</option>
+                                <option value="elf">エルフの耳</option>
+                                <option value="none">なし（耳を隠す）</option>
+                            </select>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- 髪 -->
+                <div class="menu-category">
+                    <div class="menu-category-header" data-cat="hair">髪 <span class="cat-arrow">▶</span></div>
+                    <div class="menu-category-body is-closed" data-cat-body="hair">
+
+                        <div class="control-group">
+                            <label for="hairType">髪型:</label>
+                            <select id="hairType">
+                                <option value="short01">ショートヘア</option>
+                                <option value="long01">ロングヘア</option>
+                                <option value="ponytail01">ポニーテール</option>
+                                <option value="bun01">お団子頭</option>
+                            </select>
+                        </div>
+
+                        <div class="control-group">
+                            <label for="hairColorSelect">髪の色:</label>
+                            <select id="hairColorSelect" onchange="setHairPreset(this.value)">
+                                <option value="#333333" selected>黒</option>
+                                <option value="#6b4226">茶</option>
+                                <option value="#e6c477">金</option>
+                                <option value="#d8d8e0">銀</option>
+                                <option value="#a33a2c">赤</option>
+                                <option value="#f2a6c6">ピンク</option>
+                                <option value="#3f6fb0">青</option>
+                                <option value="#7a5ca8">紫</option>
+                                <option value="custom" disabled>カスタム</option>
+                            </select>
+                        </div>
+
+                        <div class="control-group">
+                            <label for="hairColor">髪の色（カスタム）:</label>
+                            <input type="color" id="hairColor" value="#333333">
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- 衣装 -->
+                <div class="menu-category">
+                    <div class="menu-category-header" data-cat="costume">衣装 <span class="cat-arrow">▶</span></div>
+                    <div class="menu-category-body is-closed" data-cat-body="costume">
+
+                        <div class="control-group">
+                            <label for="topWearSelect">上半身:</label>
+                            <select id="topWearSelect" onchange="setTopWear(this.value)">
+                                <option value="none">なし</option>
+                                <option value="shirt" selected>Tシャツ</option>
+                                <option value="armor">軽装プレートアーマー</option>
+                                <option value="maidTop">メイド服上</option>
+                            </select>
+                        </div>
+
+                        <div class="control-group" id="shirtColorGroup">
+                            <label for="shirtColor">Tシャツの色:</label>
+                            <input type="color" id="shirtColor" value="#ffffff">
+                        </div>
+
+                        <div class="control-group" id="maidColorGroup" style="display:none">
+                            <label for="maidColor">メイド服の色（本体）:</label>
+                            <input type="color" id="maidColor" value="#2b2b36">
+                        </div>
+
+                        <div class="control-group" id="plateColorGroup" style="display:none">
+                            <label for="plateColor">甲冑色（銀）:</label>
+                            <input type="color" id="plateColor" value="#d8dce0">
+                        </div>
+
+                        <div class="control-group" id="plateTrimColorGroup" style="display:none">
+                            <label for="plateTrimColor">縁取り色（金）:</label>
+                            <input type="color" id="plateTrimColor" value="#d4af37">
+                        </div>
+
+                        <div class="control-group">
+                            <label for="bottomWearSelect">下半身:</label>
+                            <select id="bottomWearSelect" onchange="setBottomWear(this.value)">
+                                <option value="none" selected>なし</option>
+                                <option value="pants">ズボン</option>
+                                <option value="skirt">スカート</option>
+                                <option value="culotte">キュロット</option>
+                                <option value="longskirt">ロングスカート</option>
+                                <option value="maidBottom">メイド服下</option>
+                            </select>
+                        </div>
+
+                        <div class="control-group" id="pantsColorGroup" style="display:none">
+                            <label for="pantsColor">ズボンの色:</label>
+                            <input type="color" id="pantsColor" value="#4466aa">
+                        </div>
+
+                        <div class="control-group" id="skirtColorGroup" style="display:none">
+                            <label for="skirtColor">スカート/キュロットの色:</label>
+                            <input type="color" id="skirtColor" value="#ffffff">
+                        </div>
+
+                        <div class="control-group">
+                            <label for="bootsSelect">履き物:</label>
+                            <select id="bootsSelect" onchange="setWearBoots(this.value === 'true')">
+                                <option value="false" selected>なし</option>
+                                <option value="true">長靴</option>
+                            </select>
+                        </div>
+
+                        <div class="control-group" id="bootsColorGroup" style="display:none">
+                            <label for="bootsColor">長靴の色:</label>
+                            <input type="color" id="bootsColor" value="#e8c830">
+                        </div>
+
+                        <div class="control-group">
+                            <label for="helmetSelect">頭:</label>
+                            <select id="helmetSelect" onchange="setHeadAccessory(this.value)">
+                                <option value="none" selected>なし</option>
+                                <option value="helmet">ヘルメット</option>
+                                <option value="headband">カチューシャ</option>
+                            </select>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- 小道具 -->
+                <div class="menu-category">
+                    <div class="menu-category-header" data-cat="props">小道具 <span class="cat-arrow">▶</span></div>
+                    <div class="menu-category-body is-closed" data-cat-body="props">
+
+                        <div class="control-group">
+                            <label for="swordSelect">右手:</label>
+                            <select id="swordSelect" onchange="setSwordType(this.value)">
+                                <option value="none" selected>持たない</option>
+                                <option value="sword">剣</option>
+                                <option value="greatsword">大剣</option>
+                                <option value="hoe">鍬</option>
+                                <option value="wateringCan">ジョウロ</option>
+                                <option value="fishingRod">釣り竿</option>
+                                <option value="axe">斧</option>
+                            </select>
+                        </div>
+
+                        <!-- 釣り竿を選んだ時だけ表示する状態選択欄 -->
+                        <div class="control-group" id="fishingRodBendGroup" style="display:none;">
+                            <label for="fishingRodBendSelect">釣り竿の状態:</label>
+                            <select id="fishingRodBendSelect" onchange="setFishingRodBend(this.value)">
+                                <option value="straight" selected>まっすぐ</option>
+                                <option value="slight">少し曲がる</option>
+                                <option value="big">大きく曲がる</option>
+                            </select>
+                        </div>
+
+                        <div class="control-group">
+                            <label for="shieldSelect">左手:</label>
+                            <select id="shieldSelect" onchange="setLeftPropType(this.value)">
+                                <option value="none" selected>持たない</option>
+                                <option value="shield">盾</option>
+                                <option value="harvestBag">収穫袋</option>
+                                <option value="bow">弓</option>
+                            </select>
+                        </div>
+
+                        <!-- 弓を選んだ時だけ表示する状態選択欄 -->
+                        <div class="control-group" id="bowStateGroup" style="display:none;">
+                            <label for="bowStateSelect">弓の状態:</label>
+                            <select id="bowStateSelect" onchange="setBowState(this.value)">
+                                <option value="nocked" selected>矢をつがえた状態</option>
+                                <option value="drawn">引き絞った状態</option>
+                                <option value="released">放った直後（矢なし）</option>
+                            </select>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- ============ タブ：ポージング ============ -->
+            <div class="tab-content" id="tab-posing">
+
+                <div class="control-group">
+                    <label for="idleSelect">アイドルアニメ:</label>
+                    <select id="idleSelect" onchange="setIdle(this.value === 'true')">
+                        <option value="true" selected>ON</option>
+                        <option value="false">OFF</option>
+                    </select>
+                </div>
+
+                <hr class="panel-divider">
+
+                <!-- ★このポーズの表情設定（体のポージングと同じタブに配置し、
+                     ここだけで体も顔も両方編集できるようにする） -->
+                <div class="panel-section-label" style="margin:0 0 3px">😊 このポーズの表情</div>
+                <div id="posing-expr-status"></div>
+                <select id="posing-expr-toggle" class="expr-toggle-select">
+                    <option value="false" selected>OFF（デフォルト表情を使用）</option>
+                    <option value="true">ON（このポーズ専用の表情）</option>
+                </select>
+                <div id="posing-expr-buttons" class="expr-preset-grid"></div>
+
+                <hr class="panel-divider">
+
+                <!-- ★このポーズの小道具設定（表情と同じ構成：体のポージングと同じタブに配置） -->
+                <div class="panel-section-label" style="margin:0 0 3px">🗡️ このポーズの小道具</div>
+                <div id="posing-props-status"></div>
+                <select id="posing-props-toggle" class="expr-toggle-select">
+                    <option value="false" selected>OFF（キャラのデフォルト小道具を使用）</option>
+                    <option value="true">ON（このポーズ専用の小道具）</option>
+                </select>
+                <div class="props-select-row">
+                    <div class="control-group">
+                        <label for="posing-props-sword">右手:</label>
+                        <select id="posing-props-sword">
+                            <option value="none">持たない</option>
+                            <option value="sword">剣</option>
+                            <option value="greatsword">大剣</option>
+                            <option value="hoe">鍬</option>
+                            <option value="wateringCan">ジョウロ</option>
+                            <option value="fishingRod">釣り竿</option>
+                            <option value="axe">斧</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label for="posing-props-shield">左手:</label>
+                        <select id="posing-props-shield">
+                            <option value="none">持たない</option>
+                            <option value="shield">盾</option>
+                            <option value="harvestBag">収穫袋</option>
+                            <option value="bow">弓</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 右手が釣り竿の時だけ表示：このポーズ専用の釣り竿の状態 -->
+                <div class="control-group" id="posing-props-rodbend-group" style="display:none;">
+                    <label for="posing-props-rodbend">釣り竿の状態:</label>
+                    <select id="posing-props-rodbend">
+                        <option value="straight">まっすぐ</option>
+                        <option value="slight">少し曲がる</option>
+                        <option value="big">大きく曲がる</option>
+                    </select>
+                </div>
+
+                <!-- 左手が弓の時だけ表示：このポーズ専用の弓の状態 -->
+                <div class="control-group" id="posing-props-bowstate-group" style="display:none;">
+                    <label for="posing-props-bowstate">弓の状態:</label>
+                    <select id="posing-props-bowstate">
+                        <option value="nocked">矢をつがえた状態</option>
+                        <option value="drawn">引き絞った状態</option>
+                        <option value="released">放った直後（矢なし）</option>
+                    </select>
+                </div>
+
+                <hr class="panel-divider">
+
+                <!-- 肢タブ：腕 / 脚 / 首 -->
+                <div id="limb-tab-buttons">
+                    <button class="limb-tab-btn active" data-limb="arm">💪 腕</button>
+                    <button class="limb-tab-btn"        data-limb="leg">🦵 脚</button>
+                    <button class="limb-tab-btn"        data-limb="neck">🦒 首</button>
+                </div>
+
+                <!-- 左右タブ -->
+                <div id="side-tab-buttons">
+                    <button class="side-tab-btn"        data-side="0">👈 左</button>
+                    <button class="side-tab-btn active" data-side="1">👉 右</button>
+                </div>
+
+                <hr class="panel-divider">
+
+                <!-- パーツボタン（JSで動的生成） -->
+                <div class="panel-section-label">パーツを選択</div>
+                <div id="part-buttons-container"></div>
+
+                <!-- 軸凡例 -->
+                <div id="arm-axis-legend">
+                    <div class="legend-item"><div class="legend-dot" style="background:#e53935"></div>前後</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:#43a047"></div>左右</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:#1e88e5"></div>ひねり</div>
+                    <span style="font-size:10px;color:#999;font-weight:normal">矢印をドラッグ</span>
+                </div>
+
+                <!-- 角度入力 -->
+                <div id="arm-angle-inputs">
+                    <div class="angle-row">
+                        <span class="axis-label x-axis" title="前後 (Pitch)">前後</span>
+                        <input type="number" id="input-rx" value="0" step="5" min="-180" max="180">
+                        <span class="angle-unit">°</span>
+                    </div>
+                    <div class="angle-row">
+                        <span class="axis-label y-axis" title="左右 (Yaw)">左右</span>
+                        <input type="number" id="input-ry" value="0" step="5" min="-180" max="180">
+                        <span class="angle-unit">°</span>
+                    </div>
+                    <div class="angle-row">
+                        <span class="axis-label z-axis" title="ひねり (Roll)">ひねり</span>
+                        <input type="number" id="input-rz" value="0" step="5" min="-180" max="180">
+                        <span class="angle-unit">°</span>
+                    </div>
+                </div>
+
+                <button id="arm-reset-btn">🔄 このパーツをリセット</button>
+                <button id="pose-copy-btn" class="pose-vault-action-btn">📋 このポーズをコピー</button>
+                <button id="pose-delete-btn" class="pose-vault-action-btn pose-vault-delete">🗑️ このポーズを消去</button>
+
+            </div>
+
+            <!-- ============ タブ：ポーズ格納庫 ============ -->
+            <div class="tab-content" id="tab-posestore">
+
+                <!-- プリセット＝編集可能スロット -->
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                    <div class="panel-section-label" style="margin:0">プリセット</div>
+                    <div style="font-size:11px;color:#888;">✏️ 編集すると自動保存</div>
+                </div>
+                <div id="pose-slot-buttons"></div>
+                <button id="pose-default-btn" type="button">デフォルトにする</button>
+                <div id="pose-default-msg"></div>
+
+            </div>
+
+            <!-- ============ タブ：動画編集 ============ -->
+            <div class="tab-content" id="tab-videoedit">
+
+                <div class="panel-section-label" style="margin:0 0 6px">🎬 動画編集（連続ポーズをテスト再生）</div>
+
+                <div id="video-edit-chain"></div>
+
+                <div id="video-edit-pose-picker"></div>
+
+                <div id="video-edit-add-row">
+                    <input type="number" id="video-edit-num-input" min="1" max="15" placeholder="番号で追加">
+                    <button id="video-edit-num-add-btn">＋追加</button>
+                </div>
+
+                <div id="video-edit-speed-row">
+                    <span>再生速度</span>
+                    <select id="video-edit-speed-select">
+                        <option value="slow">🐢 ゆっくり</option>
+                        <option value="normal" selected>🚶 ふつう</option>
+                        <option value="fast">🏃 はやい</option>
+                    </select>
+                </div>
+
+                <div id="video-edit-controls">
+                    <button id="video-edit-clear-btn">🗑️ クリア</button>
+                    <button id="video-edit-test-btn" disabled>▶ テスト再生</button>
+                </div>
+                <button id="video-edit-save-btn" disabled style="width:100%;margin-top:6px;">💾 名前を付けて保存</button>
+
+                <div class="panel-section-label" style="margin-top:12px">保存済みシーケンス</div>
+                <div id="video-edit-saved-list"></div>
+
+                <!-- 📦 書き出し：名前・使用シーン・ポーズ番号の並びをJSONに、GLBと一緒にzipに -->
+                <div class="panel-section-label" style="margin-top:12px">📦 書き出し</div>
+                <button id="video-export-json-btn" class="video-export-btn">💾 動画編集をJSONで保存</button>
+                <button id="video-export-zip-btn" class="video-export-btn video-export-zip">📦 GLB＋JSONをzipでダウンロード</button>
+                <div id="video-export-note">zipの中身：<span id="video-export-note-glb">○○.glb</span> ＋ <span id="video-export-note-json">○○_video.json</span></div>
+
+            </div>
+
+            <!-- ============ タブ：ファイル ============ -->
+            <div class="tab-content" id="tab-file">
+
+                <button id="downloadBtn">glbファイルを出力する</button>
+
+                <div style="margin-top:14px;">
+                    <div class="panel-section-label" style="margin:0 0 4px">セーブファイル名</div>
+                    <div id="save-filename-row">
+                        <input type="text" id="saveFileNameInput" placeholder="3dmaker_save" maxlength="80">
+                        <span id="save-filename-ext">.json</span>
+                    </div>
+                    <div style="font-size:11px;color:#888;margin:2px 0 10px;">👉 名前を変えると、そのキャラ専用のポーズ格納庫に切り替わります</div>
+                    <button id="saveDataBtn" class="save-load-btn save-btn" style="display:block;width:100%;margin-bottom:8px;">💾 作業を保存する</button>
+                    <button id="loadDataBtn" class="save-load-btn load-btn" style="display:block;width:100%;">📂 作業を読み出す</button>
+                    <input type="file" id="loadFileInput" accept=".json" style="display:none">
+                </div>
+
+                <div style="margin-top:14px;padding-top:12px;border-top:1px solid #eee;">
+                    <button id="exitBtn" style="display:block;width:100%;padding:10px;background:#eee;color:#555;border:none;border-radius:7px;font-size:13px;font-weight:bold;cursor:pointer;">🚪 終了</button>
+                </div>
+
+            </div>
+
+            <!-- 常時表示：保存/読込やプリセットのステータスメッセージ -->
+            <div id="saveLoadStatus"></div>
+
+        </div>
+    </div>
+
+    <!-- スロット編集ポップアップ -->
+    <div id="slot-popup-overlay"></div>
+    <div id="slot-edit-popup">
+        <h3>✏️ プリセットを編集</h3>
+        <label>ポーズ名</label>
+        <input type="text" id="slot-name-input" maxlength="20" placeholder="ポーズ名を入力">
+
+        <label style="margin-top:4px;">😊 このポーズの表情</label>
+        <select id="slot-expr-toggle" class="expr-toggle-select">
+            <option value="false" selected>OFF（デフォルト表情を使用）</option>
+            <option value="true">ON（このポーズ専用の表情）</option>
+        </select>
+        <div id="slot-expr-buttons" class="expr-preset-grid"></div>
+
+        <label style="margin-top:4px;">🗡️ このポーズの小道具</label>
+        <select id="slot-props-toggle" class="expr-toggle-select">
+            <option value="false" selected>OFF（キャラのデフォルト小道具を使用）</option>
+            <option value="true">ON（このポーズ専用の小道具）</option>
+        </select>
+        <div class="props-select-row">
+            <div class="control-group">
+                <label for="slot-props-sword">右手:</label>
+                <select id="slot-props-sword">
+                    <option value="none">持たない</option>
+                    <option value="sword">剣</option>
+                    <option value="greatsword">大剣</option>
+                    <option value="hoe">鍬</option>
+                    <option value="fishingRod">釣り竿</option>
+                    <option value="axe">斧</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="slot-props-shield">左手:</label>
+                <select id="slot-props-shield">
+                    <option value="none">持たない</option>
+                    <option value="shield">盾</option>
+                    <option value="harvestBag">収穫袋</option>
+                    <option value="bow">弓</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- 右手が釣り竿の時だけ表示：このポーズ専用の釣り竿の状態 -->
+        <div class="control-group" id="slot-props-rodbend-group" style="display:none;">
+            <label for="slot-props-rodbend">釣り竿の状態:</label>
+            <select id="slot-props-rodbend">
+                <option value="straight">まっすぐ</option>
+                <option value="slight">少し曲がる</option>
+                <option value="big">大きく曲がる</option>
+            </select>
+        </div>
+
+        <!-- 左手が弓の時だけ表示：このポーズ専用の弓の状態 -->
+        <div class="control-group" id="slot-props-bowstate-group" style="display:none;">
+            <label for="slot-props-bowstate">弓の状態:</label>
+            <select id="slot-props-bowstate">
+                <option value="nocked">矢をつがえた状態</option>
+                <option value="drawn">引き絞った状態</option>
+                <option value="released">放った直後（矢なし）</option>
+            </select>
+        </div>
+
+        <div id="slot-popup-btns">
+            <button id="slot-popup-ok">✅ 保存</button>
+            <button id="slot-popup-cancel">キャンセル</button>
+        </div>
+        <button id="slot-popup-reset" title="このスロットをプリセット初期値に戻す">🔄 初期ポーズに戻す</button>
+    </div>
+
+    <!-- 動画編集：名前を付けて保存ポップアップ -->
+    <div id="video-name-popup-overlay"></div>
+    <div id="video-name-popup">
+        <h3 id="video-popup-title">💾 シーケンスを保存</h3>
+        <label>名前</label>
+        <input type="text" id="video-name-input" maxlength="20" placeholder="例：新しい移動モーション">
+        <label style="margin-top:8px;">使用シーン</label>
+        <input type="text" id="video-scene-input" maxlength="100" placeholder="例：ステージ1で敵を追いかける時">
+        <div id="video-popup-btns">
+            <button id="video-popup-ok">✅ 保存</button>
+            <button id="video-popup-cancel">キャンセル</button>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js"></script>
+    
+    <!-- 機能ごとに分割したJSファイル（読み込み順が重要） -->
+    <script src="panel-ui.js"></script>
+    <script src="scene-textures.js"></script>
+    <script src="character-body.js"></script>
+    <script src="clothing.js"></script>
+    <script src="animation-playback.js"></script>
+    <script src="pose-data.js"></script>
+    <script src="pose-slots.js"></script>
+    <script src="video-edit.js"></script>
+    <script src="save-load-ui.js"></script>
+    <script src="pose-edit-gizmo.js"></script>
+    <script src="glb-export.js"></script>
+    <script src="character-rotate.js"></script>
+    <script src="axis-helper.js"></script>
+    <script>
+    (function () {
+        var bar = document.getElementById('play-stop-bar'), t = document.getElementById('play-bar-toggle');
+        if (!bar || !t) return;
+        t.onclick = function () {
+            var c = bar.classList.toggle('collapsed');
+            t.textContent = c ? '▲' : '▼';
+            t.title = c ? '再生バーを開く' : '再生バーを折りたたむ';
+        };
+    })();
+    </script>
+</body>
+</html>
